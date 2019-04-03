@@ -12,12 +12,12 @@ if [ $verbose == full ]; then
     # Print all
     v1=""
     v2=""
-    date
+    date | awk '{print $4}'
 elif [ $verbose == half ]; then
     # Silence non-time critical jobs
     v1=-s
     v2=""
-    date
+    date | awk '{print $4}'
 else
     # Silence all
     v1=-s

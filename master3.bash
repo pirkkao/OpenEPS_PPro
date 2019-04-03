@@ -61,16 +61,23 @@ pp_ens=true
 # collect steps
 pp_steps=true
 
+# Verbosity
+# none (no cdo output), half (only time-critical cdo operations), 
+# full (all cdo output)
+verbose=none
 
 #*********************************************************************************
 # Setup paths
 #*********************************************************************************
-export pathtoexp=$WRKDIR/openEPS
+# Path to experiment data
+export pathtoexp=$WRKDIR/openEPS/$exp/data
+# Path to final post-process products
 export basepath=$WRKDIR/DONOTREMOVE/oeps_pp
 
 cpath=`pwd`
 mandtg=$cpath/mandtg
 
+# Create final directory if it does not exist
 test -d $basepath/$exp || mkdir -p $basepath/$exp
 
 
@@ -186,25 +193,24 @@ while [ $date -le $edate ]; do
 	    for item in $(seq 0 $((${#steplist3[*]}-1))); do
 		fitem=$(printf '%02d' $item)
 
-		cat > tmp/task${fmem}_$fitem <<EOF
+		cat > tmp/task_${fmem}_$fitem <<EOF
 #!/bin/bash
-printf '\n%s\n' " Processing member $fmem for time steps ${steplist3[$item]}"
-date
+printf '\n%.70s%s\n' "  Processing member $fmem for time steps ${steplist3[$item]}" "..."
+printf '%s\n'   "  $(date | awk '{print $4}')"
 
-cd $pathtoexp/$exp/data/$date/pert$fmem
-$cpath/ppro_reg.bash "${steplist3[$item]}"
+cd $pathtoexp/$date/pert$fmem
+$cpath/ppro_reg.bash "${steplist3[$item]}" $verbose
 
 EOF
 	        # parallel requires wider user rights
-		chmod 755 tmp/task${fmem}_$fitem
+		chmod 755 tmp/task_${fmem}_$fitem
 
 	        # create a task list for parallel
-		tasklist="$tasklist $cpath/tmp/task${fmem}_$fitem"
+		tasklist="$tasklist $cpath/tmp/task_${fmem}_$fitem"
 
 	    done
 	    imem=$(($imem + 1))
 	done
-	echo $(($parallel_bash * $step_blocks)) $tasklist
 
 	# Use GNU parallel to go through the task list
 	parallel -j $(($parallel_bash * $step_blocks)) ::: $tasklist
@@ -219,7 +225,7 @@ EOF
     if $pp_ens; then
 	printf '\n%s\n' "PROCESSING ENSEMBLE STATISTICS"
 
-	rm -f $pathtoexp/$exp/data/$date/PP_*
+	rm -f $pathtoexp/$date/PP_*
 
 	# Loop over step blocks and create sub tasks for parallel
 	tasklist=""
@@ -227,11 +233,11 @@ EOF
 	    fitem=$(printf '%02d' $item)
 	    cat > tmp/ens_$fitem <<EOF
 #!/bin/bash
-printf '\n%s\n' " Processing ensemble statistics for steps ${steplist3[$item]}"
-date
+printf '\n%.70s%s\n' "  Processing ensemble statistics for steps ${steplist3[$item]}" "..."
+printf '%s\n'   "  $(date | awk '{print $4}')"
 
-cd $pathtoexp/$exp/data/$date
-$cpath/ppro_ens.bash "${steplist3[$item]}"
+cd $pathtoexp/$date
+$cpath/ppro_ens.bash "${steplist3[$item]}" $verbose
 
 EOF
 	    # parallel requires wider user rights
@@ -255,13 +261,11 @@ EOF
 	printf '\n%s\n' "COLLECTING STEPS"
 
         # Make date dir
-	ddir=$basepath/$exp/$date
+	export ddir=$basepath/$exp/$date
 	test -d $ddir      || mkdir -p $ddir
 	test -d $ddir/grib || mkdir -p $ddir/grib
 
-
 	tasklist=""
-
 	# Loop over ensemble members
 	imem=0
 	while [ $imem -le $nmem ]; do
@@ -270,19 +274,42 @@ EOF
 	    cat > tmp/steps_$fmem <<EOF
 #!/bin/bash
 printf '\n%s\n' " Collecting time steps for member $fmem"
-date
+printf '%s\n'   "  $(date | awk '{print $4}')"
+
+$cpath/ppro_collect_steps.bash $fmem $verbose
 
 EOF
+            # parallel requires wider user rights
+            chmod 755 tmp/steps_${fmem}
+
+	    # create a task list for parallel
+	    tasklist="$tasklist $cpath/tmp/steps_${fmem}"
 	    
 	    imem=$(($imem + 1))
 	done
 
 	# Loop over ctrl, ensmean and ensstd
-	for item in "ctrl ensmean ensstd"; do
-	    echo $item
+	for item in "ctrl" "ensmean" "ensstd"; do
+
+	    cat > tmp/steps_$item <<EOF
+#!/bin/bash
+printf '\n%s\n' " Collecting time steps for $item"
+printf '%s\n'   "  $(date | awk '{print $4}')"
+
+$cpath/ppro_collect_steps.bash "$item" $verbose
+
+EOF
+            # parallel requires wider user rights
+            chmod 755 tmp/steps_${item}
+
+	    # create a task list for parallel
+	    tasklist="$tasklist $cpath/tmp/steps_${item}"
 	done
 
-	#$cpath/ppro_collect_steps.bash
+	# Use GNU parallel to go through the task list
+	parallel -j $step_blocks ::: $tasklist
+
+	#rm -f tmp/steps*
     fi
 
     date=$($mandtg $date + $dstep)
