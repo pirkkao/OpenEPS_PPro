@@ -1,89 +1,19 @@
 #!/bin/bash
 #SBATCH -p serial
 #SBATCH -J p7
-#SBATCH -t 0:10:00
+#SBATCH -t 0:30:00
 #SBATCH -n 4
 #SBATCH --mem-per-cpu=3000
 
-
-#*********************************************************************************
-# CONFIG
-#*********************************************************************************
-
-# Basic settings
-#
-export EXPS=eps2
-export RES=159
-#export exp=prod_t399_eda+sv_sisu
-export exp=prod_t159_sv_sisu
-
-
-# Parallelism
-#
-# Number of bash tasks for individual members
-parallel_bash=2
-# Number of bash tasks for forecast step processing
-parallel_step=2
-
-
-# Define start and end dates and hours between two dates
-#
- date=2017120100
-edate=2017120100
-dstep=192
-
-# Forecast length and time interval, both in [hours]
-fclen=240 
-fcstep=6 
-
-
-# Number of ens members (fetch data for 0...nmem)
-#
-export nmem=2
-
-
-# Data output frequency; 1h in model steps
-# TL159: 1
-# TL399: 3
-if [ $RES -eq 159 ]; then
-    dfcstep=1
-elif [ $RES -eq 399 ]; then
-    dfcstep=3
-fi
-
-
-# Post-processing options
-#
-# individual member pp
-pp_mem=true
-# ensemble pp (ensmean and std)
-pp_ens=true
-# collect steps
-pp_steps=true
-
-# Verbosity
-# none (no cdo output), half (only time-critical cdo operations), 
-# full (all cdo output)
-verbose=none
-
-#*********************************************************************************
-# Setup paths
-#*********************************************************************************
-# Path to experiment data
-export pathtoexp=$WRKDIR/openEPS/$exp/data
-# Path to final post-process products
-export basepath=$WRKDIR/DONOTREMOVE/oeps_pp
-
-cpath=`pwd`
-mandtg=$cpath/mandtg
-
-# Create final directory if it does not exist
-test -d $basepath/$exp || mkdir -p $basepath/$exp
-
+# Get CONFIG
+source ${1:-config}
 
 #*********************************************************************************
 # Construct timestep list
 #*********************************************************************************
+
+# Performance
+start=$SECONDS
 
 ## Old formulation without parallel
 #istep=0
@@ -162,7 +92,6 @@ for item in $(seq 0 $((${#steplist3[*]}-1))); do
     printf '%s\n' "Block $(($item+1)), steps ${steplist3[$item]}"
 done
 
-
 #*********************************************************************************
 # COMPUTATIONS
 #*********************************************************************************
@@ -185,7 +114,7 @@ while [ $date -le $edate ]; do
 	tasklist=""
 	
 	# Loop over members
-	imem=0
+	imem=$smem
 	while [ $imem -le $nmem ]; do
 	    fmem=$(printf '%03d' $imem) 
 
@@ -213,9 +142,9 @@ EOF
 	done
 
 	# Use GNU parallel to go through the task list
-	parallel -j $(($parallel_bash * $step_blocks)) ::: $tasklist
+	parallel -j $SLURM_NTASKS ::: $tasklist
 
-	#rm -f tmp/task*
+	rm -f tmp/task*
     fi
 
 
@@ -248,9 +177,9 @@ EOF
 	done
 
 	# Use GNU parallel to go through the task list
-	parallel -j $step_blocks ::: $tasklist
+	parallel -j $SLURM_NTASKS ::: $tasklist
 
-	#rm -f tmp/ens*
+	rm -f tmp/ens*
     fi
 
 
@@ -267,7 +196,7 @@ EOF
 
 	tasklist=""
 	# Loop over ensemble members
-	imem=0
+	imem=$smem
 	while [ $imem -le $nmem ]; do
 	    fmem=$(printf '%03d' $imem) 
 	    
@@ -307,12 +236,14 @@ EOF
 	done
 
 	# Use GNU parallel to go through the task list
-	parallel -j $step_blocks ::: $tasklist
+	parallel -j $SLURM_NTASKS ::: $tasklist
 
-	#rm -f tmp/steps*
+	rm -f tmp/steps*
     fi
 
     date=$($mandtg $date + $dstep)
 done
 
-printf '\n%s\n' "FINISHED"
+duration=$(( SECONDS - start ))
+
+printf '\n%s\n' "FINISHED with config pbash: $parallel_bash and pstep: $parallel_step in $duration"

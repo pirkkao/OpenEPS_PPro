@@ -1,0 +1,77 @@
+#!/bin/bash
+
+
+#*********************************************************************************
+# CONFIG
+#*********************************************************************************
+
+# Basic settings
+#
+export EXPS=eps2
+export RES=159
+export exp=prod_t159_sv_sisu
+
+
+# Parallelism
+#
+# Number of bash tasks for individual members
+export parallel_bash=2
+# Number of bash tasks for forecast step processing
+export parallel_step=4
+
+
+# Define start and end dates and hours between two dates
+#
+export date=2017120100
+export edate=2017120100
+export dstep=192
+
+# Forecast length and time interval, both in [hours]
+export fclen=240 
+export fcstep=6 
+
+
+# Number of ens members (fetch data for smem...nmem)
+#
+export smem=0
+export nmem=50
+
+
+# Data output frequency; 1h in model steps
+# TL159: 1
+# TL399: 3
+if [ $RES -eq 159 ]; then
+    dfcstep=1
+elif [ $RES -eq 399 ]; then
+    dfcstep=3
+fi
+export dfcstep
+
+# Post-processing options
+#
+# individual member pp
+export pp_mem=true
+# ensemble pp (ensmean and std)
+export pp_ens=true
+# collect steps
+export pp_steps=true
+
+# Verbosity
+# none (no cdo output), half (only time-critical cdo operations), 
+# full (all cdo output)
+export verbose=none
+
+
+#*********************************************************************************
+# Setup paths
+#*********************************************************************************
+# Path to experiment data
+export pathtoexp=$WRKDIR/openEPS/$exp/data
+# Path to final post-process products
+export basepath=$WRKDIR/DONOTREMOVE/oeps_pp
+
+export cpath=`pwd`
+export mandtg=$cpath/mandtg
+
+# Create final directory if it does not exist
+test -d $basepath/$exp || mkdir -p $basepath/$exp

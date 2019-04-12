@@ -36,7 +36,7 @@ for step in $steps; do
    # Constuct namelist for statistics calculations
    enslist=""
    srflist=""
-   for imem in $(seq 0 $nmem); do
+   for imem in $(seq $smem $nmem); do
       imem=$(printf "%03d" $imem)
       enslist="$enslist $SUBDIR_NAME${imem}/PP_pl+00$step "
       srflist="$srflist $SUBDIR_NAME${imem}/PP_srf+00$step "

@@ -1,0 +1,35 @@
+
+
+
+# PARALLEL PERFORMANCE
+# 
+
+# 4 cores
+ config pbash: 4 and pstep: 4 in 812
+
+# 8 cores
+ config pbash: 8 and pstep: 8 in 427
+ config pbash: 6 and pstep: 6 in 401
+ config pbash: 4 and pstep: 4 in 416
+
+# 16 cores
+ config pbash:  8 and pstep:  8 in 265
+ config pbash: 12 and pstep: 12 in 298
+ config pbash: 16 and pstep: 16 in 357
+ config pbash: 16 and pstep: 16 in 320
+ config pbash: 16 and pstep:  8 in 267
+
+The way the timesteps are split (a bit awkwardly) it is
+really important to use a "pstep"-value that does the 
+division in an effective way. The values for exp with 
+
+fclen=240 
+fcstep=6 
+
+should be:
+parallel_step=1
+parallel_step=2
+parallel_step=4
+parallel_step=8
+parallel_step=20
+parallel_step=40
