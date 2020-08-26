@@ -1,4 +1,24 @@
-
+# OpenEPS_PPro 
+#
+#
+# This is a program that executes post-processing tasks
+# for an ensemble of model forecasts. The program is
+# designed to be run on multiple cores using GNU 
+# parallel. 
+#
+# master.bash is the main program that initiates the
+# parallel job executions. Various post-processing tasks
+# can be called from this script. The default tasks called
+# will do 1) a bilinear interpolation to a 1*/1* regular 
+# lat-lon grid, 2) calculate ensemble mean and standard 
+# deviation, and 3) collects forecast ranges of same
+# length into a NetCDF-file.
+#
+#
+# In order to setup a new post-processing flow, simply
+# create a unique configuration file by copying the 
+# "config"-file.
+#
 
 
 # PARALLEL PERFORMANCE
@@ -19,9 +39,10 @@
  config pbash: 16 and pstep: 16 in 320
  config pbash: 16 and pstep:  8 in 267
 
-The way the timesteps are split (a bit awkwardly) it is
-really important to use a "pstep"-value that does the 
-division in an effective way. The values for exp with 
+Because of the way the timesteps are split (a bit 
+awkwardly) it is really important to use a "pstep"
+-value that does the division in an effective way. 
+The values for exp with 
 
 fclen=240 
 fcstep=6 

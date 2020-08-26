@@ -28,6 +28,13 @@ SUBDIR_NAME=pert
 
 module load cdo
 
+
+# Exclude control if it is included
+if [ $smem == 0 ]; then
+    smem=1
+fi
+
+
 # Process all steps
 #
 for step in $steps; do

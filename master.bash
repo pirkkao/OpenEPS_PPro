@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH -p serial
-#SBATCH -J p7
-#SBATCH -t 0:30:00
-#SBATCH -n 4
-#SBATCH --mem-per-cpu=3000
+#SBATCH -J t639_eda+sv
+#SBATCH -t 14:00:00
+#SBATCH -n 11
+#SBATCH --mem-per-cpu=4000
 
 # Get CONFIG
 source ${1:-config}
@@ -28,11 +28,10 @@ start=$SECONDS
 #    step=$(printf '%04d' $istep)
 #done
 
-# NEW formulation 
-#
-# fclen in model timesteps
-fclen=$(($fclen * $dfcstep))
+# Create job folder
+test -d tmp_${exp} || mkdir tmp_${exp}
 
+# NEW formulation 
 # Formulate a list containing all asked forecast steps
 istep=0
 steplist2=()
@@ -122,7 +121,7 @@ while [ $date -le $edate ]; do
 	    for item in $(seq 0 $((${#steplist3[*]}-1))); do
 		fitem=$(printf '%02d' $item)
 
-		cat > tmp/task_${fmem}_$fitem <<EOF
+		cat > tmp_${exp}/task_${fmem}_$fitem <<EOF
 #!/bin/bash
 printf '\n%.70s%s\n' "  Processing member $fmem for time steps ${steplist3[$item]}" "..."
 printf '%s\n'   "  $(date | awk '{print $4}')"
@@ -132,10 +131,10 @@ $cpath/ppro_reg.bash "${steplist3[$item]}" $verbose
 
 EOF
 	        # parallel requires wider user rights
-		chmod 755 tmp/task_${fmem}_$fitem
+		chmod 755 tmp_${exp}/task_${fmem}_$fitem
 
 	        # create a task list for parallel
-		tasklist="$tasklist $cpath/tmp/task_${fmem}_$fitem"
+		tasklist="$tasklist $cpath/tmp_${exp}/task_${fmem}_$fitem"
 
 	    done
 	    imem=$(($imem + 1))
@@ -144,7 +143,7 @@ EOF
 	# Use GNU parallel to go through the task list
 	parallel -j $SLURM_NTASKS ::: $tasklist
 
-	rm -f tmp/task*
+	rm -f tmp_${exp}/task*
     fi
 
 
@@ -160,7 +159,7 @@ EOF
 	tasklist=""
 	for item in $(seq 0 $((${#steplist3[*]}-1))); do
 	    fitem=$(printf '%02d' $item)
-	    cat > tmp/ens_$fitem <<EOF
+	    cat > tmp_${exp}/ens_$fitem <<EOF
 #!/bin/bash
 printf '\n%.70s%s\n' "  Processing ensemble statistics for steps ${steplist3[$item]}" "..."
 printf '%s\n'   "  $(date | awk '{print $4}')"
@@ -170,16 +169,16 @@ $cpath/ppro_ens.bash "${steplist3[$item]}" $verbose
 
 EOF
 	    # parallel requires wider user rights
-	    chmod 755 tmp/ens_$fitem
+	    chmod 755 tmp_${exp}/ens_$fitem
 	    
 	    # create a task list for parallel
-	    tasklist="$tasklist $cpath/tmp/ens_$fitem"
+	    tasklist="$tasklist $cpath/tmp_${exp}/ens_$fitem"
 	done
 
 	# Use GNU parallel to go through the task list
 	parallel -j $SLURM_NTASKS ::: $tasklist
 
-	rm -f tmp/ens*
+	rm -f tmp_${exp}/ens*
     fi
 
 
@@ -200,7 +199,7 @@ EOF
 	while [ $imem -le $nmem ]; do
 	    fmem=$(printf '%03d' $imem) 
 	    
-	    cat > tmp/steps_$fmem <<EOF
+	    cat > tmp_${exp}/steps_$fmem <<EOF
 #!/bin/bash
 printf '\n%s\n' " Collecting time steps for member $fmem"
 printf '%s\n'   "  $(date | awk '{print $4}')"
@@ -209,10 +208,10 @@ $cpath/ppro_collect_steps.bash $fmem $verbose
 
 EOF
             # parallel requires wider user rights
-            chmod 755 tmp/steps_${fmem}
+            chmod 755 tmp_${exp}/steps_${fmem}
 
 	    # create a task list for parallel
-	    tasklist="$tasklist $cpath/tmp/steps_${fmem}"
+	    tasklist="$tasklist $cpath/tmp_${exp}/steps_${fmem}"
 	    
 	    imem=$(($imem + 1))
 	done
@@ -220,7 +219,7 @@ EOF
 	# Loop over ctrl, ensmean and ensstd
 	for item in "ctrl" "ensmean" "ensstd"; do
 
-	    cat > tmp/steps_$item <<EOF
+	    cat > tmp_${exp}/steps_$item <<EOF
 #!/bin/bash
 printf '\n%s\n' " Collecting time steps for $item"
 printf '%s\n'   "  $(date | awk '{print $4}')"
@@ -229,16 +228,16 @@ $cpath/ppro_collect_steps.bash "$item" $verbose
 
 EOF
             # parallel requires wider user rights
-            chmod 755 tmp/steps_${item}
+            chmod 755 tmp_${exp}/steps_${item}
 
 	    # create a task list for parallel
-	    tasklist="$tasklist $cpath/tmp/steps_${item}"
+	    tasklist="$tasklist $cpath/tmp_${exp}/steps_${item}"
 	done
 
 	# Use GNU parallel to go through the task list
 	parallel -j $SLURM_NTASKS ::: $tasklist
 
-	rm -f tmp/steps*
+	rm -f tmp_${exp}/steps*
     fi
 
     date=$($mandtg $date + $dstep)
